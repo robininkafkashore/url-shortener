@@ -1,0 +1,143 @@
+"use client";
+
+import { useState } from "react";
+
+const MAX_URL_LENGTH = 2048;
+
+function validateUrl(value) {
+  const trimmedUrl = value.trim();
+
+  // 2주차 TODO 1: 빈 값 검증
+  if (!trimmedUrl) {
+    return "URL을 입력해 주세요.";
+  }
+
+  // 2주차 TODO 2: 최대 길이 검증
+  if (trimmedUrl.length > MAX_URL_LENGTH) {
+    return `URL은 ${MAX_URL_LENGTH}자 이하로 입력해 주세요.`;
+  }
+
+  // 2주차 TODO 3: http:// 또는 https:// 시작 여부 검증
+  if (!/^https?:\/\//i.test(trimmedUrl)) {
+    return "URL은 http:// 또는 https://로 시작해야 합니다.";
+  }
+
+  // 2주차 TODO 4: 올바른 URL 형식 검증
+  try {
+    new URL(trimmedUrl);
+  } catch {
+    return "올바른 URL 형식이 아닙니다.";
+  }
+
+  return null;
+}
+
+export default function Home() {
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  function handleChange(event) {
+    setOriginalUrl(event.target.value);
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    setError("");
+    setResult("");
+
+    const validationError = validateUrl(originalUrl);
+
+    if (validationError !== null) {
+      setError(validationError);
+      return;
+    }
+
+    setIsLoading(true);
+
+    // 3주차: Backend API 호출 (성공·오류 응답 구분 + try-catch-finally)
+    try {
+      const response = await fetch("/api/shorten", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ originalUrl: originalUrl.trim() }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(data?.error?.message ?? "Short URL을 만들지 못했습니다.");
+        return;
+      }
+
+      setResult(data.shortUrl);
+    } catch {
+      setError("서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <main className="page-shell">
+      <section className="url-card" aria-labelledby="page-title">
+        <div className="week-label">CLOUD COMPUTING</div>
+
+        <div className="intro">
+          <h1 id="page-title">URL Shortener</h1>
+          <p>
+            긴 URL을 입력하면 짧은 URL을 만들어 드립니다.
+          </p>
+        </div>
+
+        <form className="url-form" onSubmit={handleSubmit} noValidate>
+          <label htmlFor="original-url">줄이고 싶은 URL</label>
+          <div className="input-row">
+            <input
+              id="original-url"
+              name="originalUrl"
+              type="text"
+              inputMode="url"
+              placeholder="https://example.com/very-long-url"
+              value={originalUrl}
+              onChange={handleChange}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "url-error" : undefined}
+              disabled={isLoading}
+            />
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? "Shortening..." : "Shorten"}
+            </button>
+          </div>
+
+          <div className="message-area" aria-live="polite">
+            {error && (
+              <p id="url-error" className="message message-error" role="alert">
+                {error}
+              </p>
+            )}
+
+            {isLoading && (
+              <p className="message message-loading" role="status">
+                <span className="spinner" aria-hidden="true" />
+                짧은 URL을 만들고 있습니다.
+              </p>
+            )}
+
+            {result && (
+              <p className="message message-success" role="status">
+                Short URL:{" "}
+                <a href={result} target="_blank" rel="noreferrer">
+                  {result}
+                </a>
+              </p>
+            )}
+          </div>
+        </form>
+
+      </section>
+    </main>
+  );
+}
